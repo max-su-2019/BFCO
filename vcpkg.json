@@ -1,0 +1,14 @@
+{
+    "name":  "bfco",
+    "version-string":  "1.0.0",
+    "description":  "",
+    "license":  "MIT",
+    "dependencies":  [
+                         "spdlog"
+                     ],
+    "features":  {
+                     "mo2-install":  {
+                                         "description":  "BFCO"
+                                     }
+                 }
+}
