@@ -14,7 +14,8 @@ public:
 		Hooks::Install();
 	}
 
-	enum class Direction {
+	enum class Direction
+	{
 		kNeutral = 0,
 		kForward,
 		kStrafeRight,
@@ -22,7 +23,8 @@ public:
 		kStrafeLeft,
 	};
 
-	enum class DirectionOcto {
+	enum class DirectionOcto
+	{
 		kNeutral = 0,
 		kForward,
 		kForwardRight,
@@ -38,6 +40,7 @@ public:
 	DirectionOcto GetDirectionOcto(RE::NiPoint2 a_vec, bool a_gamepad);
 
 	void ProcessMovement(RE::PlayerControlsData* a_data, bool a_gamepad);
+	void ProcessAttackWinStart(RE::Actor* a_actor);
 
 	struct Hooks
 	{
@@ -65,11 +68,30 @@ public:
 		{
 			stl::write_vfunc<0x2, MovementHandler_ProcessThumbstick>(RE::VTABLE_MovementHandler[0]);
 			stl::write_vfunc<0x4, MovementHandler_ProcessButton>(RE::VTABLE_MovementHandler[0]);
+			stl::write_vfunc<0x1, AnimEventHook>(REL::VariantID(261399, 207890, 0x0));
 		}
+
+		using EventResult = RE::BSEventNotifyControl;
+		struct AnimEventHook
+		{
+			static EventResult thunk(RE::BSTEventSink<RE::BSAnimationGraphEvent>* a_sink, RE::BSAnimationGraphEvent* a_event, RE::BSTEventSource<RE::BSAnimationGraphEvent>* a_eventSource)
+			{
+				if (a_event && a_event->holder && _strcmpi("BFCO_AttackWinStart", a_event->tag.c_str()) == 0) {
+					GetSingleton()->ProcessAttackWinStart(a_event->holder->As<RE::Actor>());
+				}
+
+				return func(a_sink, a_event, a_eventSource);
+			}
+
+			static inline REL::Relocation<decltype(thunk)> func;
+		};
 	};
+
 private:
 	BFCO()
 	{
+		static constexpr auto scarDLLName = "SCAR.dll";
+		scarPlugin = GetModuleHandleA(scarDLLName);
 	}
 
 	BFCO(const BFCO&) = delete;
@@ -79,4 +101,6 @@ private:
 
 	BFCO& operator=(const BFCO&) = delete;
 	BFCO& operator=(BFCO&&) = delete;
+
+	HMODULE scarPlugin;
 };

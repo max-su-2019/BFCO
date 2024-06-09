@@ -13,7 +13,7 @@ include(GNUInstallDirs)
 # info
 project(
 	BFCO
-	VERSION 1.0.0
+	VERSION 3.0.9
 	LANGUAGES CXX
 )
 

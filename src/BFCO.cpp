@@ -5,7 +5,7 @@
 
 // https://blackdoor.github.io/blog/thumbstick-controls/
 
-double GetAngle(RE::NiPoint2 a_vec)
+static inline double GetAngle(RE::NiPoint2 a_vec)
 {
 	//Normally atan2 takes Y,X, not X,Y.  We switch these around since we want 0
 	// degrees to be straight up, not to the right like the unit circle;
@@ -20,6 +20,51 @@ double GetAngle(RE::NiPoint2 a_vec)
 	double angleInDegrees = (180.0f * angleInRadians / M_PI);
 
 	return angleInDegrees;
+}
+
+static inline RE::hkbClipGenerator* ToClipGenerator(RE::hkbNode* a_node)
+{
+	constexpr char CLASS_NAME[] = "hkbClipGenerator";
+
+	if (a_node && a_node->GetClassType()) {
+		if (_strcmpi(a_node->GetClassType()->name, CLASS_NAME) == 0)
+			return skyrim_cast<RE::hkbClipGenerator*>(a_node);
+	}
+
+	return nullptr;
+}
+
+static inline bool HasSCARComboEvent(RE::Actor* a_actor)
+{
+	if (!a_actor)
+		return false;
+
+	RE::BSAnimationGraphManagerPtr graphMgr;
+	if (a_actor->GetAnimationGraphManager(graphMgr) && graphMgr) {
+		auto behaviourGraph = graphMgr->graphs[0] ? graphMgr->graphs[0]->behaviorGraph : nullptr;
+		auto activeNodes = behaviourGraph ? behaviourGraph->activeNodes : nullptr;
+		if (activeNodes) {
+			for (auto nodeInfo : *activeNodes) {
+				auto nodeClone = nodeInfo.nodeClone;
+				if (nodeClone && nodeClone->GetClassType()) {
+					auto clipGenrator = ToClipGenerator(nodeClone);
+					if (clipGenrator) {
+						auto binding = clipGenrator->binding;
+						auto animation = binding ? binding->animation : nullptr;
+						if (animation && !animation->annotationTracks.empty()) {
+							for (auto anno : animation->annotationTracks[0].annotations) {
+								std::string_view text{ anno.text.c_str() };
+								if (text.starts_with("SCAR_ComboStart"))
+									return true;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return false;
 }
 
 BFCO::Direction BFCO::GetDirection(RE::NiPoint2 a_vec, bool a_gamepad)
@@ -83,5 +128,17 @@ void BFCO::ProcessMovement(RE::PlayerControlsData* a_data, bool a_gamepad)
 			DEBUG("BFCO_MoveStart");
 			player->NotifyAnimationGraph("BFCO_MoveStart");
 		}
+	}
+}
+
+void BFCO::ProcessAttackWinStart(RE::Actor* a_actor)
+{
+	if (!a_actor || a_actor->IsPlayerRef() || !a_actor->IsAttacking() || (scarPlugin && HasSCARComboEvent(a_actor))) {
+		return;
+	}
+
+	auto attackState = a_actor->GetAttackState();
+	if (attackState > RE::ATTACK_STATE_ENUM::kNone && attackState < RE::ATTACK_STATE_ENUM::kNextAttack) {
+		a_actor->actorState1.meleeAttackState = RE::ATTACK_STATE_ENUM::kNextAttack;
 	}
 }
